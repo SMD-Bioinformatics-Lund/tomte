@@ -133,14 +133,16 @@ workflow TOMTE {
         params.gtf,
         ch_vep_cache_unprocessed,
         params.transcript_fasta,
-        params.salmon_index
+        params.salmon_index,
+	params.sequence_dict
     ).set { ch_references }
     ch_versions = ch_versions.mix(PREPARE_REFERENCES.out.versions)
 
     // Gather built indices or get them from the params
     ch_chrom_sizes           = ch_references.chrom_sizes
-    ch_sequence_dict         = params.sequence_dict           ? Channel.fromPath(params.sequence_dict).collect()
-                                                              : ( ch_references.sequence_dict            ?: Channel.empty() )
+    ch_sequence_dict         = params.sequence_dict           ? Channel.fromPath(params.sequence_dict).map {it -> [[id:it[0].simpleName], it]}.collect()
+                                                              : ch_references.sequence_dict.ifEmpty([[],[]])
+
     ch_subsample_bed         = params.subsample_bed           ? Channel.fromPath(params.subsample_bed).collect()
                                                               : Channel.empty()
     ch_vep_cache             = ( params.vep_cache && params.vep_cache.endsWith("tar.gz") )  ? ch_references.vep_resources
@@ -216,18 +218,19 @@ workflow TOMTE {
         ch_alignment.bam_bai,
         ch_references.fasta_no_meta,
         ch_references.fai_no_meta,
-        ch_references.sequence_dict,
+        ch_sequence_dict,
         params.variant_caller
     )
     ch_versions = ch_versions.mix(CALL_VARIANTS.out.versions)
 
+    ch_references.interval_list.view()
 
     ALLELE_SPECIFIC_CALLING(
         CALL_VARIANTS.out.vcf_tbi,
         ch_alignment.bam_bai,
         ch_references.fasta_no_meta,
         ch_references.fai_no_meta,
-        ch_references.sequence_dict,
+        ch_sequence_dict,
         ch_references.interval_list
     )
     ch_versions = ch_versions.mix(ALLELE_SPECIFIC_CALLING.out.versions)

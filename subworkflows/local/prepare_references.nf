@@ -27,6 +27,7 @@ workflow PREPARE_REFERENCES {
         ch_vep_cache
         transcript_fasta
         salmon_index
+	seq_dict
 
     main:
         ch_versions = Channel.empty()
@@ -41,7 +42,8 @@ workflow PREPARE_REFERENCES {
         ch_fai = Channel.empty().mix(fai, SAMTOOLS_FAIDX_GENOME.out.fai).collect()
 
         BUILD_DICT(ch_fasta)
-        ch_dict = BUILD_DICT.out.dict.collect()
+        ch_dict = (!seq_dict) ? BUILD_DICT.out.dict.collect() :
+				Channel.fromPath(seq_dict).map { it -> [[:], it] }
 
         gtf_meta = Channel.fromPath(gtf).map{ it -> [ [id:it[0]], it ] }.collect()
         GUNZIP_GTF(gtf_meta)
@@ -52,19 +54,22 @@ workflow PREPARE_REFERENCES {
 
         ch_fasta_no_meta = ch_fasta.map{ meta, fasta -> [ fasta ] }
 
+
         ch_gtf=ch_gtf_no_meta.map { it -> [[:], it] }
         ch_star = star_index ? Channel.fromPath(star_index).collect() : Channel.empty()
         BUILD_STAR_GENOME (ch_fasta, ch_gtf )
         UNTAR_STAR_INDEX( ch_star.map { it -> [[:], it] } )
         ch_star_index = (!star_index) ?  BUILD_STAR_GENOME.out.index.collect() : 
-                                        (star_index.endsWith(".gz") ? UNTAR_STAR_INDEX.out.untar.map { it[1] } : star_index)
+                                        (star_index.endsWith(".gz") ? UNTAR_STAR_INDEX.out.untar.map { it[1] } : ch_star.map { it -> [[:], it] } )
         // Convert gtf to refflat for picard
         GTF_TO_REFFLAT(ch_gtf_no_meta)
 
         // Get rRNA transcripts and convert to interval_list format
         GET_RRNA_TRANSCRIPTS(ch_gtf_no_meta)
+
        
         BEDTOINTERVALLIST( GET_RRNA_TRANSCRIPTS.out.bed.map { it -> [ [id:it.name], it ] }, ch_dict )
+	BEDTOINTERVALLIST.out.interval_list.view()
 
         UNTAR_VEP_CACHE (ch_vep_cache)
         
