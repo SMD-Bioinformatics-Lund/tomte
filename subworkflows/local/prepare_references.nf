@@ -39,7 +39,7 @@ workflow PREPARE_REFERENCES {
 
         // If no genome indices, create it
         SAMTOOLS_FAIDX_GENOME(ch_fasta,[[],[]])
-        ch_fai = Channel.empty().mix(fai, SAMTOOLS_FAIDX_GENOME.out.fai).collect()
+        ch_fai = fai.mix(SAMTOOLS_FAIDX_GENOME.out.fai).collect()
 
         BUILD_DICT(ch_fasta)
         ch_dict = (!seq_dict) ? BUILD_DICT.out.dict.collect() :
@@ -56,25 +56,38 @@ workflow PREPARE_REFERENCES {
 
 
         ch_gtf=ch_gtf_no_meta.map { it -> [[:], it] }
-        ch_star = star_index ? Channel.fromPath(star_index).collect() : Channel.empty()
+        ch_star = star_index ?
+            Channel.fromPath(star_index).collect().map { it -> [ [id:it[0].simpleName], it ] }
+            : Channel.empty()
+
         BUILD_STAR_GENOME (ch_fasta, ch_gtf )
+<<<<<<< HEAD
         UNTAR_STAR_INDEX( ch_star.map { it -> [[:], it] } )
         ch_star_index = (!star_index) ?  BUILD_STAR_GENOME.out.index.collect() : 
                                         (star_index.endsWith(".gz") ? UNTAR_STAR_INDEX.out.untar.map { it[1] } : ch_star.map { it -> [[:], it] } )
+=======
+        UNTAR_STAR_INDEX( ch_star.map { it -> [[:], it[1]] } )
+        ch_star_index = (!star_index) ?  BUILD_STAR_GENOME.out.index.collect() :
+                                        (star_index.endsWith(".gz") ? UNTAR_STAR_INDEX.out.untar.map { it[1] } : ch_star)
+>>>>>>> 6d2e34e048ae6d36cad6744aeda7a34defcb1e3b
         // Convert gtf to refflat for picard
         GTF_TO_REFFLAT(ch_gtf_no_meta)
 
         // Get rRNA transcripts and convert to interval_list format
         GET_RRNA_TRANSCRIPTS(ch_gtf_no_meta)
 
+<<<<<<< HEAD
        
+=======
+>>>>>>> 6d2e34e048ae6d36cad6744aeda7a34defcb1e3b
         BEDTOINTERVALLIST( GET_RRNA_TRANSCRIPTS.out.bed.map { it -> [ [id:it.name], it ] }, ch_dict )
 	BEDTOINTERVALLIST.out.interval_list.view()
 
         UNTAR_VEP_CACHE (ch_vep_cache)
-        
+
         // Preparing transcript fasta
-        ch_fasta_fai = ch_fasta.join(ch_fai).collect()
+        ch_fasta_fai = ch_fasta.mix(ch_fai.map{meta, fai -> fai}).collect()
+
         GFFREAD(ch_gtf_no_meta.map{ it -> [ [id:it[0].simpleName], it ] },ch_fasta_fai)
         transcript_fasta_no_meta = (!transcript_fasta) ? GFFREAD.out.tr_fasta.collect() :
                                     (transcript_fasta.endsWith(".gz") ? GUNZIP_TRFASTA.out.gunzip.collect().map{ meta, fasta -> [ fasta ] } : transcript_fasta)
@@ -84,9 +97,9 @@ workflow PREPARE_REFERENCES {
         UNTAR_SALMON_INDEX( ch_salmon.map { it -> [[:], it] } )
         SALMON_INDEX(ch_fasta_no_meta, transcript_fasta_no_meta)
 
-        ch_salmon_index = (!salmon_index) ? SALMON_INDEX.out.index.collect() : 
+        ch_salmon_index = (!salmon_index) ? SALMON_INDEX.out.index.collect() :
                                             (salmon_index.endsWith(".gz") ? UNTAR_SALMON_INDEX.out.untar.map { it[1] } : salmon_index)
-        
+
         ch_versions = ch_versions.mix(GUNZIP_FASTA.out.versions)
         ch_versions = ch_versions.mix(SAMTOOLS_FAIDX_GENOME.out.versions)
         ch_versions = ch_versions.mix(BUILD_DICT.out.versions)
@@ -105,7 +118,7 @@ workflow PREPARE_REFERENCES {
         fasta_no_meta    = ch_fasta_no_meta
         fai              = ch_fai
         fai_no_meta      = ch_fai.map{ meta, fai -> [fai] }.collect()
-        fasta_fai_meta   = ch_fasta.join(ch_fai).collect()
+        fasta_fai_meta   = ch_fasta_fai
         sequence_dict    = BUILD_DICT.out.dict.collect()
         gtf              = ch_gtf_no_meta
         star_index       = ch_star_index

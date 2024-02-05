@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    tomte
+    genomic-medicine-sweden/tomte
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     Github : https://github.com/genomic-medicine-sweden/tomte
 ----------------------------------------------------------------------------------------
@@ -29,6 +29,7 @@ params.transcript_fasta               = WorkflowMain.getGenomeAttribute(params, 
 params.vep_cache                      = WorkflowMain.getGenomeAttribute(params, 'vep_cache')
 params.vep_cache_version              = WorkflowMain.getGenomeAttribute(params, 'vep_cache_version')
 params.vep_filters                    = WorkflowMain.getGenomeAttribute(params, 'vep_filters')
+params.vep_plugin_files               = WorkflowMain.getGenomeAttribute(params, 'vep_plugin_files')
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -44,7 +45,7 @@ params.subsample_bed                  = WorkflowMain.getGenomeAttribute(params, 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { validateParameters; paramsHelp } from 'plugin/nf-validation'
+include { validateParameters; paramsHelp; paramsSummaryLog; fromSamplesheet } from 'plugin/nf-validation'
 
 // Print help message if needed
 if (params.help) {
@@ -71,7 +72,7 @@ WorkflowMain.initialise(workflow, params, log)
 include { TOMTE } from './workflows/tomte'
 
 //
-// WORKFLOW: Run main nf-core/tomte analysis pipeline
+// WORKFLOW: Run main genomic-medicine-sweden/tomte analysis pipeline
 //
 workflow GMS_TOMTE {
     TOMTE ()
